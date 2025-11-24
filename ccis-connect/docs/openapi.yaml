@@ -1,0 +1,220 @@
+openapi: 3.0.0
+info:
+  title: CCIS CONNECT API (Prototype)
+  version: 0.1
+servers:
+  - url: http://localhost:4000/api
+paths:
+  /rooms:
+    get:
+      summary: List rooms
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Room'
+
+  /equipment:
+    get:
+      summary: List equipment
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Equipment'
+
+  /poi:
+    get:
+      summary: List points of interest
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/POI'
+
+  /requests:
+    get:
+      summary: List requests (optionally by status)
+      parameters:
+        - in: query
+          name: status
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Request'
+
+    post:
+      summary: Create a new request
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                roomId:
+                  type: string
+                itemType:
+                  type: string
+                qty:
+                  type: integer
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Request'
+
+  /requests/{id}/approve:
+    post:
+      summary: Approve request
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Approved
+
+  /requests/{id}/reject:
+    post:
+      summary: Reject request
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Rejected
+
+  /rooms/{id}/return:
+    post:
+      summary: Mark returned items from a room
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                itemType:
+                  type: string
+                qty:
+                  type: integer
+      responses:
+        '200':
+          description: Items returned
+
+  /rooms/move:
+    post:
+      summary: Move items between rooms
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                from:
+                  type: string
+                to:
+                  type: string
+                itemType:
+                  type: string
+                qty:
+                  type: integer
+      responses:
+        '200':
+          description: Moved
+
+components:
+  schemas:
+    Room:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        capacity:
+          type: integer
+        available:
+          type: boolean
+        items:
+          type: object
+        x:
+          type: number
+        y:
+          type: number
+
+    Equipment:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        location:
+          type: string
+        available:
+          type: boolean
+
+    Request:
+      type: object
+      properties:
+        id:
+          type: string
+        roomId:
+          type: string
+        itemType:
+          type: string
+        qty:
+          type: integer
+        status:
+          type: string
+        createdAt:
+          type: string
+        actedAt:
+          type: string
+
+    POI:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        x:
+          type: number
+        y:
+          type: number
