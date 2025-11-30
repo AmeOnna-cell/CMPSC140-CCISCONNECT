@@ -71,7 +71,7 @@ function App() {
   };
 
   // Submit borrow request
-  const submitBorrowRequest = (equipmentId, quantity, roomId = null) => {
+  const submitBorrowRequest = (equipmentId, quantity, roomId = null, additionalData = {}) => {
     const equipment = equipmentData.find(eq => eq.id === equipmentId);
     if (!equipment || equipment.quantity < quantity) {
       return { success: false, message: 'Insufficient equipment available' };
@@ -84,8 +84,15 @@ function App() {
       quantity,
       roomId,
       requester: users[userRole]?.name || 'Unknown',
+      requesterRole: users[userRole]?.role || 'student',
       status: 'pending',
       createdAt: new Date().toISOString(),
+      purpose: additionalData.purpose || '',
+      duration: additionalData.duration || '',
+      returnDate: additionalData.returnDate || '',
+      educationalPurpose: additionalData.educationalPurpose || null,
+      submittedAt: additionalData.submittedAt || new Date().toISOString(),
+      returned: false
     };
 
     setBorrowRequests(prev => [request, ...prev]);
@@ -139,6 +146,39 @@ function App() {
     );
   };
 
+  // Update equipment status (admin only)
+  const updateEquipmentStatus = (updatePayload) => {
+    setEquipmentData(prev =>
+      prev.map(eq =>
+        eq.id === updatePayload.equipmentId
+          ? {
+              ...eq,
+              available: updatePayload.available,
+              quantity: updatePayload.quantity,
+              status: updatePayload.status,
+              lastUpdated: updatePayload.timestamp,
+              updatedBy: updatePayload.updatedBy
+            }
+          : eq
+      )
+    );
+
+    // Save to localStorage for persistence
+    const updatedEquipment = equipmentData.map(eq =>
+      eq.id === updatePayload.equipmentId
+        ? {
+            ...eq,
+            available: updatePayload.available,
+            quantity: updatePayload.quantity,
+            status: updatePayload.status,
+            lastUpdated: updatePayload.timestamp,
+            updatedBy: updatePayload.updatedBy
+          }
+        : eq
+    );
+    localStorage.setItem('equipmentData', JSON.stringify(updatedEquipment));
+  };
+
   // Filter rooms based on search
   const filteredRooms = roomsData.filter(room =>
     room.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -190,9 +230,21 @@ function App() {
         <div className="search-bar">
           <input
             type="text"
-            placeholder="Search rooms by name or ID..."
+            placeholder={view === 'map' ? "Search rooms, facilities, or equipment..." : "Search rooms by name or ID..."}
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              // Auto-highlight on map when searching
+              if (view === 'map' && e.target.value) {
+                const foundRoom = roomsData.find(room => 
+                  room.name.toLowerCase().includes(e.target.value.toLowerCase()) ||
+                  room.id.toLowerCase().includes(e.target.value.toLowerCase())
+                );
+                if (foundRoom) {
+                  setSelectedRoom(foundRoom);
+                }
+              }
+            }}
             className="search-input"
           />
         </div>
@@ -241,6 +293,7 @@ function App() {
             onRejectRequest={rejectRequest}
             onReturnEquipment={returnEquipment}
             onToggleRoom={toggleRoomAvailability}
+            onUpdateEquipmentStatus={updateEquipmentStatus}
           />
         )}
       </main>

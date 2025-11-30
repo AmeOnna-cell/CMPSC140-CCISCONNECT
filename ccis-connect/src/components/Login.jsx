@@ -4,7 +4,7 @@ import '../styles/Login.css';
 function Login({ onLogin }) {
   const [isSignUp, setIsSignUp] = useState(false);
   const [formData, setFormData] = useState({
-    email: '',
+    idNumber: '',
     password: '',
     confirmPassword: '',
     name: '',
@@ -26,7 +26,7 @@ function Login({ onLogin }) {
     setError('');
 
     // Basic validation
-    if (!formData.email || !formData.password) {
+    if (!formData.idNumber || !formData.password) {
       setError('Please fill in all required fields');
       return;
     }
@@ -45,9 +45,15 @@ function Login({ onLogin }) {
         return;
       }
 
+      // Validate ID number format
+      if (!formData.idNumber.match(/^[0-9-]+$/)) {
+        setError('ID number should contain only numbers and hyphens');
+        return;
+      }
+
       // Sign up logic - in a real app, this would call an API
       const newUser = {
-        email: formData.email,
+        idNumber: formData.idNumber,
         name: formData.name,
         role: formData.role
       };
@@ -56,8 +62,9 @@ function Login({ onLogin }) {
       const users = JSON.parse(localStorage.getItem('ccis_users') || '[]');
       
       // Check if user already exists
-      if (users.some(u => u.email === formData.email)) {
-        setError('User with this email already exists');
+      if (users.some(u => u.idNumber === formData.idNumber)) {
+        const idType = formData.role === 'student' ? 'Student Number' : 'Faculty/Admin Number';
+        setError(`User with this ${idType} already exists`);
         return;
       }
 
@@ -69,16 +76,16 @@ function Login({ onLogin }) {
     } else {
       // Login logic - in a real app, this would call an API
       const users = JSON.parse(localStorage.getItem('ccis_users') || '[]');
-      const user = users.find(u => u.email === formData.email && u.password === formData.password);
+      const user = users.find(u => u.idNumber === formData.idNumber && u.password === formData.password);
 
       if (user) {
         onLogin({
-          email: user.email,
+          idNumber: user.idNumber,
           name: user.name,
           role: user.role
         });
       } else {
-        setError('Invalid email or password');
+        setError('Invalid ID number or password');
       }
     }
   };
@@ -87,12 +94,27 @@ function Login({ onLogin }) {
     setIsSignUp(!isSignUp);
     setError('');
     setFormData({
-      email: '',
+      idNumber: '',
       password: '',
       confirmPassword: '',
       name: '',
       role: 'student'
     });
+  };
+
+  // Get label based on role
+  const getIdLabel = () => {
+    if (formData.role === 'student') {
+      return 'Student Number';
+    }
+    return 'Faculty/Admin Number';
+  };
+
+  const getIdPlaceholder = () => {
+    if (formData.role === 'student') {
+      return 'Enter your student number';
+    }
+    return 'Enter your faculty/admin number';
   };
 
   return (
@@ -118,57 +140,16 @@ function Login({ onLogin }) {
           {error && <div className="error-message">{error}</div>}
 
           {isSignUp && (
-            <div className="form-group">
-              <label htmlFor="name">Full Name</label>
-              <input
-                type="text"
-                id="name"
-                name="name"
-                value={formData.name}
-                onChange={handleInputChange}
-                placeholder="Enter your full name"
-                required
-              />
-            </div>
-          )}
-
-          <div className="form-group">
-            <label htmlFor="email">Email Address</label>
-            <input
-              type="email"
-              id="email"
-              name="email"
-              value={formData.email}
-              onChange={handleInputChange}
-              placeholder="Enter your email"
-              required
-            />
-          </div>
-
-          <div className="form-group">
-            <label htmlFor="password">Password</label>
-            <input
-              type="password"
-              id="password"
-              name="password"
-              value={formData.password}
-              onChange={handleInputChange}
-              placeholder="Enter your password"
-              required
-            />
-          </div>
-
-          {isSignUp && (
             <>
               <div className="form-group">
-                <label htmlFor="confirmPassword">Confirm Password</label>
+                <label htmlFor="name">Full Name</label>
                 <input
-                  type="password"
-                  id="confirmPassword"
-                  name="confirmPassword"
-                  value={formData.confirmPassword}
+                  type="text"
+                  id="name"
+                  name="name"
+                  value={formData.name}
                   onChange={handleInputChange}
-                  placeholder="Confirm your password"
+                  placeholder="Enter your full name"
                   required
                 />
               </div>
@@ -188,6 +169,47 @@ function Login({ onLogin }) {
                 </select>
               </div>
             </>
+          )}
+
+          <div className="form-group">
+            <label htmlFor="idNumber">{getIdLabel()}</label>
+            <input
+              type="text"
+              id="idNumber"
+              name="idNumber"
+              value={formData.idNumber}
+              onChange={handleInputChange}
+              placeholder={getIdPlaceholder()}
+              required
+            />
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="password">Password</label>
+            <input
+              type="password"
+              id="password"
+              name="password"
+              value={formData.password}
+              onChange={handleInputChange}
+              placeholder="Enter your password"
+              required
+            />
+          </div>
+
+          {isSignUp && (
+            <div className="form-group">
+              <label htmlFor="confirmPassword">Confirm Password</label>
+              <input
+                type="password"
+                id="confirmPassword"
+                name="confirmPassword"
+                value={formData.confirmPassword}
+                onChange={handleInputChange}
+                placeholder="Confirm your password"
+                required
+              />
+            </div>
           )}
 
           <button type="submit" className="login-button">
