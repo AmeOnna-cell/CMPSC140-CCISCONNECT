@@ -505,15 +505,18 @@ export default function Admin({
                       </div>
                       <div className="request-card-body">
                         <div className="request-detail">
-                          <strong>Requester:</strong> {req.requester}
+                          <strong>Requester:</strong> {req.userName || req.requester} ({req.userRole})
                         </div>
-                        {req.roomId && (
+                        {req.purpose && (
                           <div className="request-detail">
-                            <strong>For Room:</strong> {req.roomId}
+                            <strong>Purpose:</strong> {req.purpose}
                           </div>
                         )}
                         <div className="request-detail">
-                          <strong>Requested:</strong> {new Date(req.createdAt).toLocaleString()}
+                          <strong>Requested:</strong> {new Date(req.requestDate || req.createdAt).toLocaleString()}
+                        </div>
+                        <div className="request-detail">
+                          <strong>Duration:</strong> {req.duration}
                         </div>
                         <div className="request-detail">
                           <strong>Available Stock:</strong> 
@@ -564,13 +567,106 @@ export default function Admin({
                   <div key={req.id} className="request-card approved">
                     <div className="request-card-header">
                       <div className="request-title">
-                        <strong>{req.equipmentName}</strong> × {req.qty}
+                        <strong>{req.equipmentName}</strong> × {req.quantity || req.qty}
                       </div>
-                      <span className="request-status approved">Approved</span>
+                      <span className="request-status approved">✓ Approved</span>
                     </div>
                     <div className="request-card-body">
                       <div className="request-detail">
-                        {req.requester} • {new Date(req.approvedAt).toLocaleString()}
+                        {req.userName || req.requester} • {new Date(req.approvedDate || req.approvedAt).toLocaleString()}
+                      </div>
+                      <div className="request-detail">
+                        <strong>Return Date:</strong> {req.returnDate}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Rejected Requests */}
+          {rejectedRequests.length > 0 && (
+            <div className="requests-section">
+              <h4>Rejected Requests</h4>
+              <div className="requests-list">
+                {rejectedRequests.slice(0, 10).map(req => (
+                  <div key={req.id} className="request-card rejected">
+                    <div className="request-card-header">
+                      <div className="request-title">
+                        <strong>{req.equipmentName}</strong> × {req.quantity || req.qty}
+                      </div>
+                      <span className="request-status rejected">✗ Rejected</span>
+                    </div>
+                    <div className="request-card-body">
+                      <div className="request-detail">
+                        {req.userName || req.requester} • {new Date(req.rejectedDate || req.rejectedAt).toLocaleString()}
+                      </div>
+                      {req.rejectionReason && (
+                        <div className="request-detail rejection-reason">
+                          <strong>Reason:</strong> {req.rejectionReason}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Returned/Completed Requests */}
+          {requests.filter(r => r.status === 'returned').length > 0 && (
+            <div className="requests-section">
+              <h4>Returned Equipment</h4>
+              <div className="requests-list">
+                {requests.filter(r => r.status === 'returned').slice(0, 10).map(req => (
+                  <div key={req.id} className="request-card returned">
+                    <div className="request-card-header">
+                      <div className="request-title">
+                        <strong>{req.equipmentName}</strong> × {req.quantity || req.qty}
+                      </div>
+                      <span className="request-status returned">↩ Returned</span>
+                    </div>
+                    <div className="request-card-body">
+                      <div className="request-detail">
+                        {req.userName || req.requester} • Returned: {new Date(req.actualReturnDate).toLocaleString()}
+                      </div>
+                      {req.condition && (
+                        <div className="request-detail">
+                          <strong>Condition:</strong> {req.condition}
+                        </div>
+                      )}
+                      {req.lateFee && (
+                        <div className="request-detail late-fee">
+                          <strong>Late Fee:</strong> ₱{req.lateFee}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Overdue Requests */}
+          {requests.filter(r => r.status === 'overdue').length > 0 && (
+            <div className="requests-section">
+              <h4>⚠️ Overdue Equipment</h4>
+              <div className="requests-list">
+                {requests.filter(r => r.status === 'overdue').map(req => (
+                  <div key={req.id} className="request-card overdue">
+                    <div className="request-card-header">
+                      <div className="request-title">
+                        <strong>{req.equipmentName}</strong> × {req.quantity || req.qty}
+                      </div>
+                      <span className="request-status overdue">⚠ Overdue</span>
+                    </div>
+                    <div className="request-card-body">
+                      <div className="request-detail">
+                        {req.userName || req.requester} • Expected: {req.returnDate}
+                      </div>
+                      <div className="request-detail overdue-days">
+                        <strong>Days Overdue:</strong> {req.daysOverdue} days
                       </div>
                     </div>
                   </div>
@@ -628,7 +724,15 @@ export default function Admin({
                   <h4>Requester Information</h4>
                   <div className="detail-row">
                     <span className="detail-label">Name:</span>
-                    <span className="detail-value">{selectedRequest.requester}</span>
+                    <span className="detail-value">{selectedRequest.userName || selectedRequest.requester}</span>
+                  </div>
+                  <div className="detail-row">
+                    <span className="detail-label">User ID:</span>
+                    <span className="detail-value">{selectedRequest.userId}</span>
+                  </div>
+                  <div className="detail-row">
+                    <span className="detail-label">Role:</span>
+                    <span className="detail-value">{selectedRequest.userRole}</span>
                   </div>
                   <div className="detail-row">
                     <span className="detail-label">Request ID:</span>
@@ -637,20 +741,32 @@ export default function Admin({
                   <div className="detail-row">
                     <span className="detail-label">Date Submitted:</span>
                     <span className="detail-value">
-                      {new Date(selectedRequest.createdAt).toLocaleString()}
+                      {new Date(selectedRequest.requestDate || selectedRequest.createdAt).toLocaleString()}
                     </span>
                   </div>
                 </div>
 
-                {selectedRequest.roomId && (
-                  <div className="detail-section">
-                    <h4>Usage Information</h4>
-                    <div className="detail-row">
-                      <span className="detail-label">Intended Room:</span>
-                      <span className="detail-value">{selectedRequest.roomId}</span>
-                    </div>
+                <div className="detail-section">
+                  <h4>Usage Information</h4>
+                  <div className="detail-row">
+                    <span className="detail-label">Purpose:</span>
+                    <span className="detail-value">{selectedRequest.purpose}</span>
                   </div>
-                )}
+                  <div className="detail-row">
+                    <span className="detail-label">Duration:</span>
+                    <span className="detail-value">{selectedRequest.duration}</span>
+                  </div>
+                  <div className="detail-row">
+                    <span className="detail-label">Return Date:</span>
+                    <span className="detail-value">{selectedRequest.returnDate}</span>
+                  </div>
+                  {selectedRequest.educationalPurpose && (
+                    <div className="detail-row">
+                      <span className="detail-label">Educational Purpose:</span>
+                      <span className="detail-value">Yes</span>
+                    </div>
+                  )}
+                </div>
 
                 <div className="detail-section full-width">
                   <h4>Availability Check</h4>

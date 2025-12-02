@@ -9,8 +9,9 @@ export default function Borrow({ equipment, currentUser, selectedRoom, onSubmitR
   const [viewMode, setViewMode] = useState('list'); // list or status
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [connectionError, setConnectionError] = useState(false);
   const [lastUpdated, setLastUpdated] = useState(new Date());
+  const [requestBlocked, setRequestBlocked] = useState(false);
+  const [blockedReason, setBlockedReason] = useState('');
   
   // Request form fields
   const [purpose, setPurpose] = useState('');
@@ -22,30 +23,14 @@ export default function Borrow({ equipment, currentUser, selectedRoom, onSubmitR
   const [confirmationData, setConfirmationData] = useState(null);
   const [requestReferenceNumber, setRequestReferenceNumber] = useState(null);
 
-  // Simulate database connection check
+  // Update timestamp periodically
   useEffect(() => {
-    checkDatabaseConnection();
     const interval = setInterval(() => {
       setLastUpdated(new Date());
     }, 30000); // Update timestamp every 30 seconds
 
     return () => clearInterval(interval);
   }, []);
-
-  const checkDatabaseConnection = () => {
-    try {
-      // Simulate database connection check
-      const stored = localStorage.getItem('equipmentData');
-      if (!stored) {
-        throw new Error('Database connection failed');
-      }
-      setConnectionError(false);
-      setError(null);
-    } catch (err) {
-      setConnectionError(true);
-      setError('Database connection failed. Please try again later.');
-    }
-  };
 
   // Check user permissions
   const checkPermissions = () => {
@@ -92,8 +77,9 @@ export default function Borrow({ equipment, currentUser, selectedRoom, onSubmitR
   // Check for unreturned equipment
   const checkUnreturnedEquipment = () => {
     const unreturned = requests.filter(
-      r => r.requester === currentUser.name && 
+      r => (r.userName === currentUser.name || r.requester === currentUser.name) && 
       r.status === 'approved' && 
+      r.status !== 'returned' &&
       !r.returned
     );
     return unreturned;
@@ -102,7 +88,7 @@ export default function Borrow({ equipment, currentUser, selectedRoom, onSubmitR
   // Check for pending requests
   const checkPendingViolations = () => {
     const pending = requests.filter(
-      r => r.requester === currentUser.name && 
+      r => (r.userName === currentUser.name || r.requester === currentUser.name) && 
       r.status === 'pending'
     );
     return pending;
@@ -110,33 +96,43 @@ export default function Borrow({ equipment, currentUser, selectedRoom, onSubmitR
 
   const handleRequestClick = (eq) => {
     // Check permissions before allowing request
-    if (!currentUser.canBorrow) {
+    if (!currentUser || !currentUser.canBorrow) {
       setError('Authorization error: You do not have permission to borrow equipment. Please log in as a student or faculty member.');
+      try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch {}
       return;
     }
 
     // Check equipment availability
     if (!eq.available || eq.quantity === 0) {
       setError('Equipment no longer available. The equipment status has changed. Please browse the equipment list again.');
+      try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch {}
       return;
     }
 
-    // Check for unreturned equipment
+    // Evaluate constraints but still open the form with explanation
     const unreturnedEquipment = checkUnreturnedEquipment();
-    if (unreturnedEquipment.length > 0) {
-      setError(`You have unreturned equipment. Please return the following before borrowing: ${unreturnedEquipment.map(r => r.equipmentName).join(', ')}. The request is blocked until previous equipment is returned.`);
-      return;
-    }
+    const pending = checkPendingViolations();
 
-    setError(null);
-    setFormErrors({});
     setSelectedEquipment(eq);
     setQuantity(1);
     setPurpose('');
     setDuration('');
     setReturnDate('');
     setEducationalPurpose('');
+    setFormErrors({});
+    setError(null);
     setShowRequestForm(true);
+
+    if (unreturnedEquipment.length > 0) {
+      setBlockedReason(`You have unreturned equipment: ${unreturnedEquipment.map(r => r.equipmentName).join(', ')}. Submit is disabled until items are returned.`);
+      setRequestBlocked(true);
+    } else if (pending.length > 0) {
+      setBlockedReason('You already have pending request(s). Submit is disabled until they are approved or cancelled.');
+      setRequestBlocked(true);
+    } else {
+      setBlockedReason('');
+      setRequestBlocked(false);
+    }
   };
 
   // Validate form inputs in real-time
@@ -271,15 +267,10 @@ export default function Borrow({ equipment, currentUser, selectedRoom, onSubmitR
     setEducationalPurpose('');
     setFormErrors({});
     setError(null);
+    setRequestBlocked(false);
+    setBlockedReason('');
   };
 
-  const handleRetryConnection = () => {
-    setLoading(true);
-    setTimeout(() => {
-      checkDatabaseConnection();
-      setLoading(false);
-    }, 1000);
-  };
   const filteredEquipment = equipment.filter(eq => {
     const matchesFilter = 
       filter === 'all' || 
@@ -294,7 +285,7 @@ export default function Borrow({ equipment, currentUser, selectedRoom, onSubmitR
     return matchesFilter && matchesSearch;
   });
 
-  const userRequests = requests.filter(r => r.requester === currentUser.name);
+  const userRequests = requests.filter(r => r.userName === currentUser.name || r.requester === currentUser.name);
   const pendingRequests = userRequests.filter(r => r.status === 'pending');
 
   return (
@@ -305,20 +296,6 @@ export default function Borrow({ equipment, currentUser, selectedRoom, onSubmitR
           <span className="error-icon">⚠️</span>
           <span className="error-message">{error}</span>
           <button className="error-close" onClick={() => setError(null)}>×</button>
-        </div>
-      )}
-
-      {/* Connection Error */}
-      {connectionError && (
-        <div className="connection-error">
-          <span className="error-icon">🔌</span>
-          <div className="error-content">
-            <strong>Database Connection Failed</strong>
-            <p>Unable to retrieve equipment data. Please check your connection and try again.</p>
-          </div>
-          <button className="btn-retry" onClick={handleRetryConnection} disabled={loading}>
-            {loading ? 'Retrying...' : 'Retry Connection'}
-          </button>
         </div>
       )}
 
@@ -345,7 +322,7 @@ export default function Borrow({ equipment, currentUser, selectedRoom, onSubmitR
       </div>
 
       {/* Equipment Statistics Dashboard */}
-      {equipment.length === 0 && !connectionError ? (
+      {equipment.length === 0 ? (
         <div className="no-equipment-message">
           <span className="no-equipment-icon">📦</span>
           <h3>No Equipment Available</h3>
@@ -576,7 +553,7 @@ export default function Borrow({ equipment, currentUser, selectedRoom, onSubmitR
                   <div className={`availability-badge ${eq.available && eq.quantity > 0 ? 'available' : 'unavailable'}`}>
                     {eq.available && eq.quantity > 0 ? '✓ Available Now' : '✗ Currently Unavailable'}
                   </div>
-                  {currentUser.canBorrow && eq.available && eq.quantity > 0 && (
+                  {currentUser && currentUser.canBorrow && eq.available && eq.quantity > 0 && (
                     <button 
                       className="btn-request"
                       onClick={() => handleRequestClick(eq)}
@@ -606,6 +583,13 @@ export default function Borrow({ equipment, currentUser, selectedRoom, onSubmitR
                 <div className="form-error-banner">
                   <span className="error-icon">⚠️</span>
                   <span>{error}</span>
+                </div>
+              )}
+
+              {requestBlocked && (
+                <div className="form-warning-banner">
+                  <span className="warning-icon">⛔</span>
+                  <span>{blockedReason}</span>
                 </div>
               )}
 
@@ -720,7 +704,7 @@ export default function Borrow({ equipment, currentUser, selectedRoom, onSubmitR
               <button className="btn-secondary" onClick={handleCancelRequest} disabled={loading}>
                 Cancel
               </button>
-              <button className="btn-primary" onClick={handleSubmitRequest} disabled={loading}>
+              <button className="btn-primary" onClick={handleSubmitRequest} disabled={loading || requestBlocked}>
                 {loading ? 'Submitting...' : 'Submit Request'}
               </button>
             </div>

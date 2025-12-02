@@ -5,18 +5,17 @@ import Rooms from './components/Rooms';
 import Borrow from './components/Borrow';
 import Admin from './components/Admin';
 import Login from './components/Login';
-import { rooms as initialRooms, equipment as initialEquipment, users } from './data';
+import { rooms as initialRooms, equipment as initialEquipment, sampleBorrowRequests } from './data';
 import './styles/App.css';
 
 function App() {
   const [view, setView] = useState('map');
-  const [userRole, setUserRole] = useState('guest');
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
   const [roomsData, setRoomsData] = useState(initialRooms);
   const [equipmentData, setEquipmentData] = useState(initialEquipment);
   const [selectedRoom, setSelectedRoom] = useState(null);
-  const [borrowRequests, setBorrowRequests] = useState([]);
+  const [borrowRequests, setBorrowRequests] = useState(sampleBorrowRequests);
   const [searchQuery, setSearchQuery] = useState('');
 
   // Load from localStorage on mount
@@ -33,9 +32,16 @@ function App() {
     // Auto-login if user session exists
     if (savedUser) {
       const user = JSON.parse(savedUser);
-      setCurrentUser(user);
-      setUserRole(user.role);
-      setIsLoggedIn(true);
+      // Check if user has new permission properties, if not, force re-login
+      if (user.canUpdateRooms === undefined || user.canBorrow === undefined) {
+        console.log('Old user format detected, clearing session...');
+        localStorage.removeItem('ccis_current_user');
+        setIsLoggedIn(false);
+        setCurrentUser(null);
+      } else {
+        setCurrentUser(user);
+        setIsLoggedIn(true);
+      }
     }
   }, []);
 
@@ -83,15 +89,15 @@ function App() {
       equipmentName: equipment.name,
       quantity,
       roomId,
-      requester: users[userRole]?.name || 'Unknown',
-      requesterRole: users[userRole]?.role || 'student',
+      userId: currentUser?.idNumber || 'unknown',
+      userName: currentUser?.name || 'Unknown',
+      userRole: currentUser?.role || 'student',
       status: 'pending',
-      createdAt: new Date().toISOString(),
+      requestDate: new Date().toISOString(),
       purpose: additionalData.purpose || '',
       duration: additionalData.duration || '',
       returnDate: additionalData.returnDate || '',
-      educationalPurpose: additionalData.educationalPurpose || null,
-      submittedAt: additionalData.submittedAt || new Date().toISOString(),
+      educationalPurpose: additionalData.educationalPurpose || false,
       returned: false
     };
 
@@ -117,7 +123,7 @@ function App() {
       setBorrowRequests(prev =>
         prev.map(r =>
           r.id === requestId
-            ? { ...r, status: 'approved', approvedAt: new Date().toISOString() }
+            ? { ...r, status: 'approved', approvedBy: currentUser?.name || 'Admin', approvedDate: new Date().toISOString() }
             : r
         )
       );
@@ -125,11 +131,11 @@ function App() {
   };
 
   // Reject borrow request (admin only)
-  const rejectRequest = (requestId) => {
+  const rejectRequest = (requestId, reason = '') => {
     setBorrowRequests(prev =>
       prev.map(r =>
         r.id === requestId
-          ? { ...r, status: 'rejected', rejectedAt: new Date().toISOString() }
+          ? { ...r, status: 'rejected', rejectedBy: currentUser?.name || 'Admin', rejectedDate: new Date().toISOString(), rejectionReason: reason }
           : r
       )
     );
@@ -185,12 +191,9 @@ function App() {
     room.id.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const displayUser = currentUser || users[userRole] || users.guest;
-
   // Handle login
   const handleLogin = (user) => {
     setCurrentUser(user);
-    setUserRole(user.role);
     setIsLoggedIn(true);
     localStorage.setItem('ccis_current_user', JSON.stringify(user));
   };
@@ -199,7 +202,7 @@ function App() {
   const handleLogout = () => {
     setIsLoggedIn(false);
     setCurrentUser(null);
-    setUserRole('guest');
+    setView('map');
     localStorage.removeItem('ccis_current_user');
   };
 
@@ -212,17 +215,22 @@ function App() {
     <div className="app-root">
       <NavBar view={view} setView={setView} />
       
-      {/* Role Selector */}
-      <div className="role-selector">
-        <label>Current Role: </label>
-        <select value={userRole} onChange={(e) => setUserRole(e.target.value)}>
-          <option value="guest">Guest</option>
-          <option value="student">Student</option>
-          <option value="faculty">Faculty</option>
-          <option value="admin">Administrator</option>
-        </select>
-        <span className="user-info">({displayUser.name})</span>
-        <button onClick={handleLogout} className="logout-button">Logout</button>
+      {/* User Info Bar */}
+      <div className="user-info-bar">
+        <div className="user-badge">
+          <span className="user-icon">{currentUser?.role === 'admin' ? '👨‍💼' : currentUser?.role === 'faculty' ? '👨‍🏫' : '👨‍🎓'}</span>
+          <div className="user-details">
+            <span className="user-name">{currentUser?.name}</span>
+            <span className="user-role-badge">{currentUser?.role === 'admin' ? 'Administrator' : currentUser?.role === 'faculty' ? 'Faculty Member' : 'Student'}</span>
+          </div>
+        </div>
+        <div className="user-id-display">
+          <span className="id-label">ID:</span>
+          <span className="id-value">{currentUser?.idNumber}</span>
+        </div>
+        <button onClick={handleLogout} className="logout-button">
+          <span className="logout-icon">🚪</span> Logout
+        </button>
       </div>
 
       {/* Search Bar (for map and rooms views) */}
@@ -257,7 +265,7 @@ function App() {
             rooms={filteredRooms}
             selectedRoom={selectedRoom}
             setSelectedRoom={setSelectedRoom}
-            currentUser={displayUser}
+            currentUser={currentUser}
             onRoomClick={(room) => {
               setSelectedRoom(room);
             }}
@@ -267,7 +275,7 @@ function App() {
         {view === 'rooms' && (
           <Rooms
             rooms={filteredRooms}
-            currentUser={displayUser}
+            currentUser={currentUser}
             onToggleRoom={toggleRoomAvailability}
             onQRUpdate={updateRoomViaQR}
           />
@@ -276,7 +284,7 @@ function App() {
         {view === 'borrow' && (
           <Borrow
             equipment={equipmentData}
-            currentUser={displayUser}
+            currentUser={currentUser}
             selectedRoom={selectedRoom}
             onSubmitRequest={submitBorrowRequest}
             requests={borrowRequests}
@@ -288,7 +296,7 @@ function App() {
             rooms={roomsData}
             equipment={equipmentData}
             requests={borrowRequests}
-            currentUser={displayUser}
+            currentUser={currentUser}
             onApproveRequest={approveRequest}
             onRejectRequest={rejectRequest}
             onReturnEquipment={returnEquipment}

@@ -407,64 +407,65 @@ export default function MapView({ rooms, selectedRoom, setSelectedRoom, currentU
       </div>
 
       <div className="map-container">
-        <div 
-          className="map-canvas" 
-          onWheel={handleWheel}
-          style={{ 
-            transform: `scale(${zoomLevel})`,
-            transformOrigin: 'center center',
-            willChange: 'transform'
-          }}
-        >
-          {/* Navigation Path */}
-          {showPath && path && (
-            <svg className="navigation-path" style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none' }}>
-              <defs>
-                <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
-                  <polygon points="0 0, 10 3, 0 6" fill="#2563eb" />
-                </marker>
-              </defs>
-              <polyline
-                points={path.waypoints.map(p => `${p.x}%,${p.y}%`).join(' ')}
-                fill="none"
-                stroke="#2563eb"
-                strokeWidth="3"
-                strokeDasharray="5,5"
-                markerEnd="url(#arrowhead)"
+        <div className="map-canvas" onWheel={handleWheel}>
+          <div 
+            className="map-content"
+            style={{ 
+              transform: `scale(${zoomLevel})`,
+              transformOrigin: 'center center',
+              willChange: 'transform'
+            }}
+          >
+            {/* Navigation Path */}
+            {showPath && path && (
+              <svg className="navigation-path" style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none' }}>
+                <defs>
+                  <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+                    <polygon points="0 0, 10 3, 0 6" fill="#2563eb" />
+                  </marker>
+                </defs>
+                <polyline
+                  points={path.waypoints.map(p => `${p.x}%,${p.y}%`).join(' ')}
+                  fill="none"
+                  stroke="#2563eb"
+                  strokeWidth="3"
+                  strokeDasharray="5,5"
+                  markerEnd="url(#arrowhead)"
+                />
+                {/* Starting point marker */}
+                <circle cx={`${path.start.x}%`} cy={`${path.start.y}%`} r="8" fill="#22c55e" stroke="white" strokeWidth="2" />
+                <text x={`${path.start.x}%`} y={`${path.start.y - 2}%`} fontSize="12" fill="#22c55e" fontWeight="bold" textAnchor="middle">
+                  Start
+                </text>
+              </svg>
+            )}
+
+            {/* Render rooms */}
+            {rooms.map(room => (
+              <Marker
+                key={room.id}
+                x={room.x}
+                y={room.y}
+                label={room.name}
+                available={room.available}
+                type={room.type}
+                onClick={() => handleRoomClick(room)}
+                isSelected={selectedRoom?.id === room.id}
+                isHighlighted={highlightedRoom?.id === room.id}
               />
-              {/* Starting point marker */}
-              <circle cx={`${path.start.x}%`} cy={`${path.start.y}%`} r="8" fill="#22c55e" stroke="white" strokeWidth="2" />
-              <text x={`${path.start.x}%`} y={`${path.start.y - 2}%`} fontSize="12" fill="#22c55e" fontWeight="bold" textAnchor="middle">
-                Start
-              </text>
-            </svg>
-          )}
+            ))}
 
-          {/* Render rooms */}
-          {rooms.map(room => (
-            <Marker
-              key={room.id}
-              x={room.x}
-              y={room.y}
-              label={room.name}
-              available={room.available}
-              type={room.type}
-              onClick={() => handleRoomClick(room)}
-              isSelected={selectedRoom?.id === room.id}
-              isHighlighted={highlightedRoom?.id === room.id}
-            />
-          ))}
-
-          {/* Render points of interest */}
-          {pointsOfInterest.map(poi => (
-            <POIMarker
-              key={poi.id}
-              x={poi.x}
-              y={poi.y}
-              label={poi.name}
-              type={poi.type}
-            />
-          ))}
+            {/* Render points of interest */}
+            {pointsOfInterest.map(poi => (
+              <POIMarker
+                key={poi.id}
+                x={poi.x}
+                y={poi.y}
+                label={poi.name}
+                type={poi.type}
+              />
+            ))}
+          </div>
         </div>
 
         <div className="map-sidebar">

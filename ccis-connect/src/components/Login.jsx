@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { prototypeUsers } from '../data';
 import '../styles/Login.css';
 
 function Login({ onLogin }) {
@@ -11,6 +12,7 @@ function Login({ onLogin }) {
     role: 'student'
   });
   const [error, setError] = useState('');
+  const [showHint, setShowHint] = useState(false);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -74,18 +76,18 @@ function Login({ onLogin }) {
       // Auto login after signup
       onLogin(newUser);
     } else {
-      // Login logic - in a real app, this would call an API
-      const users = JSON.parse(localStorage.getItem('ccis_users') || '[]');
-      const user = users.find(u => u.idNumber === formData.idNumber && u.password === formData.password);
+      // Login logic - check against prototype users
+      const user = prototypeUsers.find(u => 
+        u.idNumber === formData.idNumber && u.password === formData.password
+      );
 
       if (user) {
-        onLogin({
-          idNumber: user.idNumber,
-          name: user.name,
-          role: user.role
-        });
+        // Don't pass the password to the app
+        const { password, ...userWithoutPassword } = user;
+        onLogin(userWithoutPassword);
       } else {
         setError('Invalid ID number or password');
+        setShowHint(true);
       }
     }
   };
@@ -216,6 +218,29 @@ function Login({ onLogin }) {
             {isSignUp ? 'Sign Up' : 'Log In'}
           </button>
 
+          {!isSignUp && showHint && (
+            <div className="demo-credentials">
+              <div className="demo-header">
+                <span className="demo-icon">🔑</span>
+                <strong>Demo Credentials</strong>
+              </div>
+              <div className="demo-list">
+                <div className="demo-item">
+                  <span className="demo-role">Student:</span>
+                  <code>2021-00001</code> / <code>student123</code>
+                </div>
+                <div className="demo-item">
+                  <span className="demo-role">Faculty:</span>
+                  <code>FAC-2020-001</code> / <code>faculty123</code>
+                </div>
+                <div className="demo-item">
+                  <span className="demo-role">Admin:</span>
+                  <code>ADM-2018-001</code> / <code>admin123</code>
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="login-toggle">
             <p>
               {isSignUp ? 'Already have an account?' : "Don't have an account?"}
@@ -228,7 +253,8 @@ function Login({ onLogin }) {
         </form>
 
         <div className="login-footer">
-          <p>College of Computing and Information Sciences</p>
+          <p>🏛️ College of Computing and Information Sciences</p>
+          <p className="prototype-badge">✨ Prototype Demo Version</p>
         </div>
       </div>
     </div>

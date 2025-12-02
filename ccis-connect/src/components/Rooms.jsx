@@ -8,6 +8,10 @@ export default function Rooms({ rooms, currentUser, onToggleRoom, onQRUpdate }) 
   const [scanSuccess, setScanSuccess] = useState('');
   const [selectedAction, setSelectedAction] = useState('entering'); // entering or leaving
 
+  // Debug: Log currentUser to console
+  console.log('Rooms - currentUser:', currentUser);
+  console.log('Rooms - canUpdateRooms:', currentUser?.canUpdateRooms);
+
   // Simulate instructor schedule (in real app, this would come from backend)
   const getInstructorSchedule = () => {
     const currentHour = new Date().getHours();
@@ -129,7 +133,7 @@ export default function Rooms({ rooms, currentUser, onToggleRoom, onQRUpdate }) 
       </div>
 
       {/* QR Code Scanner (Faculty/Admin only) */}
-      {currentUser.canUpdateRooms && (
+      {currentUser && currentUser.canUpdateRooms && (
         <div className="qr-scanner-panel">
           <h3>📱 Update Room Status via QR Code</h3>
           <p className="qr-instructions">
